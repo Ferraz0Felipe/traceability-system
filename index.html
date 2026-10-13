@@ -3,83 +3,117 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gravador NFC - Valeo</title>
+  <title>Gravador de Rastreabilidade NFC</title>
+  
+  <!-- Biblioteca da Câmera -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  
   <style>
     body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #070e13; color: white; padding: 20px; }
-    .panel { background: #1e252a; border-top: 4px solid #ab47bc; padding: 20px; border-radius: 12px; max-width: 400px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-    h2 { color: #ab47bc; text-align: center; }
-    .input-group { margin-bottom: 15px; }
+    .panel { background: #1e252a; border-top: 4px solid #ab47bc; padding: 20px; border-radius: 12px; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.5); text-align: center; }
+    h2 { color: #ab47bc; }
+    .scan-area { background: rgba(171, 71, 188, 0.05); border: 2px dashed #ab47bc; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+    .input-group { margin-bottom: 15px; text-align: left; }
     label { display: block; font-size: 0.75rem; color: #99aabb; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
     input { width: 100%; background: #14191d; color: white; border: 1px solid #2a3339; padding: 12px; border-radius: 4px; box-sizing: border-box; outline: none; }
-    input:focus { border-color: #ab47bc; }
     button { width: 100%; background: #ab47bc; color: white; border: none; padding: 15px; border-radius: 6px; font-weight: bold; font-size: 1rem; cursor: pointer; margin-top: 10px; }
-    .msg { text-align: center; font-size: 0.85rem; margin-top: 15px; color: #3de800; }
+    .btn-cam { background: rgba(79, 195, 247, 0.1); color: #4fc3f7; border: 1px solid #4fc3f7; }
+    #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-top: 10px; display: none; }
   </style>
 </head>
 <body>
 
   <div class="panel">
-    <h2>Gravação de Etiqueta NFC</h2>
-    <p style="text-align: center; color: #99aabb; font-size: 0.85rem; margin-bottom: 20px;">Utilize este app em um dispositivo Android (Chrome) para gravar as tags físicas.</p>
+    <h2>Criar Smart Tag NFC</h2>
+    <p style="color: #99aabb; font-size: 0.85rem; margin-bottom: 20px;">1. Leia o código de barras da peça<br>2. Grave o link permanente na tag NFC.</p>
 
-    <div class="input-group">
-      <label>Componente</label>
-      <input type="text" id="grav-comp" placeholder="Ex: Embreagem">
-    </div>
-    <div class="input-group">
-      <label>Denominação</label>
-      <input type="text" id="grav-den" placeholder="Ex: Conj. Platô e Disco">
-    </div>
-    <div class="input-group">
-      <label>Data de Produção</label>
-      <input type="date" id="grav-data">
-    </div>
-    <div class="input-group">
-      <label>Número de Série (SN)</label>
-      <input type="text" id="grav-ns" placeholder="SN-0000000" style="color: #ab47bc; font-weight: bold;">
+    <!-- 1. ÁREA DA CÂMERA -->
+    <div class="scan-area">
+      <button class="btn-cam" onclick="abrirCamera()">📷 LER CÓDIGO DA PEÇA</button>
+      <div id="reader"></div>
     </div>
 
-    <button onclick="escreverNFC()">GRAVAR NA TAG NFC</button>
-    <div id="status" class="msg"></div>
+    <!-- 2. DADOS EXTRAÍDOS E LINK GERADO -->
+    <div class="input-group">
+      <label>Número de Série (Extraído)</label>
+      <input type="text" id="grav-ns" placeholder="Aguardando leitura..." readonly style="color: #3de800; font-weight: bold;">
+    </div>
+    
+    <div class="input-group">
+      <label>URL que será gravada no NFC</label>
+      <input type="text" id="grav-url" readonly style="color: #99aabb; font-size: 0.8rem;">
+    </div>
+
+    <!-- 3. GRAVAÇÃO NFC -->
+    <button onclick="gravarURLnoNFC()">GRAVAR URL NA TAG NFC</button>
+    <div id="status" style="margin-top: 15px; font-size: 0.9rem;"></div>
   </div>
 
   <script>
-    async function escreverNFC() {
-      const msg = document.getElementById("status");
+    // === COLOQUE AQUI O LINK DO SEU GOOGLE APPS SCRIPT (PORTAL PRINCIPAL) ===
+    const URL_PORTAL_APPS_SCRIPT = "https://script.google.com/a/macros/valeo.com/s/SEU_ID_AQUI/exec";
+    
+    let html5QrcodeScanner = null;
+
+    // --- 1. LÓGICA DA CÂMERA ---
+    function abrirCamera() {
+      document.getElementById("reader").style.display = "block";
+      if (!html5QrcodeScanner) {
+        html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+      }
+      html5QrcodeScanner.render(onScanSuccess);
+    }
+
+    function onScanSuccess(decodedText) {
+      // Simulação: Aqui você faria o split se a etiqueta fosse complexa
+      // Vamos assumir que a câmera leu o Número de Série (Ex: SN-98765)
+      const serialNumber = decodedText; 
       
+      document.getElementById("grav-ns").value = serialNumber;
+      
+      // MONTA A URL INTELIGENTE (?id=NUMERO_DE_SERIE)
+      const urlInteligente = `${URL_PORTAL_APPS_SCRIPT}?id=${encodeURIComponent(serialNumber)}`;
+      document.getElementById("grav-url").value = urlInteligente;
+
+      // Desliga a câmera após ler
+      html5QrcodeScanner.clear();
+      document.getElementById("reader").style.display = "none";
+    }
+
+    // --- 2. LÓGICA DE GRAVAÇÃO WEBNFC (TIPO: URL) ---
+    async function gravarURLnoNFC() {
+      const msg = document.getElementById("status");
+      const urlParaGravar = document.getElementById("grav-url").value;
+
+      if (!urlParaGravar) {
+        msg.style.color = "#f27166";
+        msg.innerText = "Por favor, leia o código da peça primeiro para gerar a URL.";
+        return;
+      }
+
       if (!("NDEFReader" in window)) {
         msg.style.color = "#f27166";
-        msg.innerText = "Erro: Navegador não suporta Web NFC. Use o Chrome no Android.";
+        msg.innerText = "Navegador não suporta Web NFC. Use o Chrome no Android.";
         return;
       }
-
-      const comp = document.getElementById("grav-comp").value;
-      const den = document.getElementById("grav-den").value;
-      const data = document.getElementById("grav-data").value;
-      const ns = document.getElementById("grav-ns").value;
-
-      if (!ns || !comp) {
-        msg.style.color = "#f27166";
-        msg.innerText = "Preencha o Componente e o Número de Série!";
-        return;
-      }
-
-      // Monta o payload (o que vai dentro do chip)
-      const payloadNFC = `COMP:${comp}|DEN:${den}|DATA:${data}|NS:${ns}`;
 
       try {
         msg.style.color = "#ab47bc";
         msg.innerText = "Aproxime o celular da tag NFC agora...";
         
         const ndef = new NDEFReader();
-        await ndef.write(payloadNFC);
+        
+        // A MÁGICA: Grava um registro do tipo "url" (e não texto puro)
+        await ndef.write({
+          records: [{ recordType: "url", data: urlParaGravar }]
+        });
         
         msg.style.color = "#3de800";
-        msg.innerText = "Gravação concluída com sucesso!";
-        document.getElementById("grav-ns").value = ""; // Limpa para a próxima
+        msg.innerText = "Smart Tag gravada! Quem encostar na tag abrirá o sistema.";
+        
       } catch (error) {
         msg.style.color = "#f27166";
-        msg.innerText = "Falha ao gravar. Tente novamente.";
+        msg.innerText = "Falha ao gravar. Aproxime mais a tag.";
       }
     }
   </script>
