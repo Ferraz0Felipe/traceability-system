@@ -53,15 +53,28 @@
     // === COLOQUE AQUI O LINK DO SEU GOOGLE APPS SCRIPT (PORTAL PRINCIPAL) ===
     const URL_PORTAL_APPS_SCRIPT = "https://script.google.com/a/macros/valeo.com/s/SEU_ID_AQUI/exec";
     
-    let html5QrcodeScanner = null;
+    let html5QrCode = null;
 
     // --- 1. LÓGICA DA CÂMERA ---
     function abrirCamera() {
       document.getElementById("reader").style.display = "block";
-      if (!html5QrcodeScanner) {
-        html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+      
+      if (!html5QrCode) {
+        html5QrCode = new Html5Qrcode("reader");
       }
-      html5QrcodeScanner.render(onScanSuccess);
+      
+      // Força o uso da câmera traseira usando facingMode: "environment"
+      html5QrCode.start(
+        { facingMode: "environment" }, 
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        onScanSuccess
+      ).catch(err => {
+        console.error("Erro ao iniciar a câmera:", err);
+        alert("Não foi possível acessar a câmera traseira.");
+      });
     }
 
     function onScanSuccess(decodedText) {
@@ -76,8 +89,11 @@
       document.getElementById("grav-url").value = urlInteligente;
 
       // Desliga a câmera após ler
-      html5QrcodeScanner.clear();
-      document.getElementById("reader").style.display = "none";
+      html5QrCode.stop().then(() => {
+        document.getElementById("reader").style.display = "none";
+      }).catch(err => {
+        console.error("Erro ao desligar a câmera:", err);
+      });
     }
 
     // --- 2. LÓGICA DE GRAVAÇÃO WEBNFC (TIPO: URL) ---
